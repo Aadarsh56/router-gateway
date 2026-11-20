@@ -1,0 +1,28 @@
+# REAL CONFIG TEMPLATE. Copy to configs/tiers.yaml and fill in.
+# 1. Pick one cheap and one strong model that your provider currently offers (check its docs and free-tier limits).
+# 2. Many providers expose an OpenAI-compatible endpoint; confirm the base_url in their documentation.
+# 3. Put the provider's current LIST price in price_*_per_m even if you use a free tier ("shadow pricing"),
+#    otherwise your measured savings will read as zero. Look the prices up; do not guess.
+# 4. Keys go in environment variables only (see .env.example). Never commit keys.
+db_path: traces.db
+runtime:
+  threshold: 0.45        # hardness below this starts on the cheap tier
+  escalation_hint: true  # on escalation, send the failed attempt plus the reason
+  max_escalations: 1
+  verify: true
+  session_budget_usd: 0  # 0 = unlimited
+tiers:
+  - name: cheap
+    provider: openai_compat
+    base_url: https://REPLACE_WITH_PROVIDER_OPENAI_COMPATIBLE_URL/v1
+    api_key_env: CHEAP_API_KEY
+    model: REPLACE_WITH_CHEAP_MODEL_ID
+    price_in_per_m: 0.0   # TODO: list price, USD per million input tokens
+    price_out_per_m: 0.0  # TODO: list price, USD per million output tokens
+  - name: strong
+    provider: openai_compat
+    base_url: https://REPLACE_WITH_PROVIDER_OPENAI_COMPATIBLE_URL/v1
+    api_key_env: STRONG_API_KEY
+    model: REPLACE_WITH_STRONG_MODEL_ID
+    price_in_per_m: 0.0
+    price_out_per_m: 0.0

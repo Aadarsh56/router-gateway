@@ -1,0 +1,20 @@
+# OFFLINE MOCK CONFIG: for tests and dashboard development only. Never use for evaluation or the teacher demo.
+db_path: traces.mock.db
+runtime:
+  threshold: 0.45
+  escalation_hint: true
+  max_escalations: 1
+  verify: true
+tiers:
+  - name: cheap
+    provider: mock
+    model: mock-cheap
+    price_in_per_m: 0.10
+    price_out_per_m: 0.40
+    mock_latency_s: 0.05
+  - name: strong
+    provider: mock
+    model: mock-strong
+    price_in_per_m: 1.25
+    price_out_per_m: 10.00
+    mock_latency_s: 0.20

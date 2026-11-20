@@ -1,0 +1,8 @@
+{"prompt": "Fix the typo in the README heading."}
+{"prompt": "Rename the variable tmp to total in utils.py."}
+{"prompt": "Add a docstring to the parse_config function."}
+{"prompt": "Explain what the retry decorator does."}
+{"prompt": "Add input validation to the signup form handler. [mock-hard]"}
+{"prompt": "Refactor the order module to remove the race condition in checkout."}
+{"prompt": "Write a helper that formats dates for the report. [mock-hard]"}
+{"prompt": "Update the log message to include the user id."}
