@@ -4,6 +4,12 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 import yaml
 
 
@@ -29,6 +35,8 @@ class RuntimeConfig:
     max_escalations: int = 1
     verify: bool = True
     session_budget_usd: float = 0.0  # 0 means unlimited
+    cache_enabled: bool = False  # exact cache for 0ms, $0.00 repeated queries (opt-in via config)
+    kill_switch: bool = False  # emergency kill switch: blocks non-admin traffic
 
 
 @dataclass

@@ -48,8 +48,12 @@ def messages_chars(messages: list[dict]) -> int:
     for m in messages:
         content = m.get("content", "")
         if isinstance(content, list):
-            total += sum(len(p.get("text", "")) for p in content if isinstance(p, dict))
-        else:
+            for p in content:
+                if isinstance(p, dict):
+                    total += len(p.get("text", ""))
+        elif isinstance(content, str):
+            total += len(content)
+        elif content:
             total += len(str(content))
     return total
 
@@ -59,7 +63,11 @@ class OpenAICompatProvider:
 
     def __init__(self, tier: TierConfig, client: httpx.AsyncClient | None = None, retry_sleep: float = 1.0):
         self.tier = tier
-        self._client = client or httpx.AsyncClient()
+        if client is None:
+            limits = httpx.Limits(max_keepalive_connections=20, max_connections=50, keepalive_expiry=30.0)
+            self._client = httpx.AsyncClient(limits=limits)
+        else:
+            self._client = client
         self._retry_sleep = retry_sleep
 
     async def aclose(self) -> None:
@@ -71,6 +79,8 @@ class OpenAICompatProvider:
             raise ProviderError(f"{self.tier.name}: environment variable {self.tier.api_key_env} is not set")
         payload: dict[str, Any] = {"model": self.tier.model, "messages": messages}
         payload.update({k: v for k, v in params.items() if k in PASSTHROUGH_PARAMS})
+        if "max_tokens" not in payload and "max_completion_tokens" not in payload:
+            payload["max_tokens"] = 8192
         url = self.tier.base_url.rstrip("/") + "/chat/completions"
         headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
         resp = None

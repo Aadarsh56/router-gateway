@@ -1,0 +1,4 @@
+get_median([1, 2, 3, 4, 5]) returns 2 instead of 3.
+get_median([10, 20, 30]) returns 10 instead of 20.
+The function sorts the list correctly but picks the wrong middle element.
+Fix it so it returns the true middle value for lists with an odd number of elements.

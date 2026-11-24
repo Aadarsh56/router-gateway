@@ -1,0 +1,7 @@
+run_id,task,difficulty,mode,run_num,solved,wall_time_s,gateway_requests,escalations,cost_usd,tokens_in,tokens_out,wasted_cost_usd,aider_exit_code,timestamp
+e01_add_operator_single_1,e01_add_operator,easy,single,1,yes,9.4,1,0,0.00019365,779,128,0,0,2026-11-20T18:32:57.359218
+e01_add_operator_auto_1,e01_add_operator,easy,auto,1,yes,8.8,1,0,8.423e-05,779,86,0,0,2026-11-20T18:33:15.009488
+m06_range_inclusive_single_1,m06_range_inclusive,medium,single,1,yes,9.2,1,0,0.0001998,800,133,0,0,2026-11-20T18:33:32.041517
+m06_range_inclusive_auto_1,m06_range_inclusive,medium,auto,1,yes,8.9,1,0,9.39e-05,800,113,0,0,2026-11-20T18:33:49.535129
+h12_discount_pipeline_single_1,h12_discount_pipeline,hard,single,1,yes,9.3,1,0,0.0002823,954,232,0,0,2026-11-20T18:34:06.746600
+h12_discount_pipeline_auto_1,h12_discount_pipeline,hard,auto,1,yes,8.9,1,0,0.00011055,954,130,0,0,2026-11-20T18:34:24.601612

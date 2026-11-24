@@ -1,0 +1,4 @@
+A student who scores exactly 50 should pass, but the function marks them as failing.
+is_passing(50) returns False but should return True.
+is_passing(80) and is_passing(51) are correct.
+Fix the boundary condition.

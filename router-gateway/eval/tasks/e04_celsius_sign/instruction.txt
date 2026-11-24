@@ -1,0 +1,4 @@
+The temperature conversion function returns values with the wrong sign.
+celsius_to_fahrenheit(0) returns -32 instead of 32.
+celsius_to_fahrenheit(100) returns -212 instead of 212.
+Every result has the wrong sign. Fix the formula.

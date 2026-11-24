@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -14,6 +15,38 @@ EASY_WORDS = (
     "spelling", "print", "readme", "log ",
 )
 FAIL_WORDS = ("traceback", "error:", "failed", "exception", "assertionerror")
+
+
+_CONTROL_FLOW_NODES = (
+    ast.If, ast.For, ast.While, ast.Try, ast.ExceptHandler,
+    ast.With, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
+)
+
+
+def _calculate_ast_complexity(text: str) -> dict[str, int]:
+    """Measure structural code complexity (AST node count and control flow points)."""
+    if "```" not in text:
+        return {"ast_nodes": 0, "control_flow": 0}
+
+    nodes = 0
+    control_flow = 0
+    parts = text.split("```")
+    for i in range(1, len(parts), 2):
+        snippet = parts[i]
+        # Skip the language tag on the first line if present
+        first_nl = snippet.find("\n")
+        code = snippet[first_nl + 1:] if first_nl != -1 else ""
+        if not code.strip():
+            continue
+        try:
+            tree = ast.parse(code[:15000])  # limit parser to 15k chars for safety and speed
+            for node in ast.walk(tree):
+                nodes += 1
+                if isinstance(node, _CONTROL_FLOW_NODES):
+                    control_flow += 1
+        except Exception:
+            pass
+    return {"ast_nodes": nodes, "control_flow": control_flow}
 
 
 def cost_usd(tier: TierConfig, tokens_in: int, tokens_out: int) -> float:
@@ -36,6 +69,7 @@ def extract_features(messages: list[dict]) -> dict[str, Any]:
             last_user = message_text(m)
             break
     low = last_user.lower()
+    complexity = _calculate_ast_complexity(last_user)
     return {
         "n_messages": len(messages),
         "last_user_chars": len(last_user),
@@ -43,6 +77,8 @@ def extract_features(messages: list[dict]) -> dict[str, Any]:
         "hard_hits": [w for w in HARD_WORDS if w in low],
         "easy_hits": [w for w in EASY_WORDS if w in low],
         "fail_hits": [w for w in FAIL_WORDS if w in low],
+        "ast_nodes": complexity["ast_nodes"],
+        "control_flow": complexity["control_flow"],
     }
 
 
@@ -87,6 +123,9 @@ class RuleRouter:
         if f["n_code_fences"] >= 2:
             score += 0.10
             reasons.append("multiple code blocks")
+        if f.get("control_flow", 0) >= 4:
+            score += 0.10
+            reasons.append(f"high code complexity ({f['control_flow']} control structures)")
         score = max(0.0, min(1.0, score))
         threshold = max(0.05, threshold)
         idx = min(n_tiers - 1, int(score / threshold))

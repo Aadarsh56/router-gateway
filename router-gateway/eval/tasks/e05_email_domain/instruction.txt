@@ -1,0 +1,3 @@
+get_domain("user@example.com") returns "user" instead of "example.com".
+The function is returning the part before the @ symbol instead of the part after it.
+Fix it to return the domain portion of the email address.

@@ -1,0 +1,6 @@
+The access control system has the permissions completely backwards.
+Admin users (IDs 1, 2, 3) are being denied delete access — can_delete() returns False.
+Regular users (all other IDs) are being granted delete access — can_delete() returns True.
+Only admins should be allowed to delete.
+The roles.py file is correct — the bug is in access.py.
+Fix can_delete() so admins return True and regular users return False.

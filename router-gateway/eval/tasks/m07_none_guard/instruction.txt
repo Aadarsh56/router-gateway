@@ -1,0 +1,3 @@
+word_count(None) raises an AttributeError instead of returning 0.
+The function works correctly for strings but crashes when given None.
+It should return 0 for None input (treating it like an empty text).

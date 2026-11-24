@@ -1,0 +1,4 @@
+The double function does not double its input.
+double(4) returns 4 instead of 8.
+double(10) returns 10 instead of 20.
+Fix the function so it returns twice the input value.

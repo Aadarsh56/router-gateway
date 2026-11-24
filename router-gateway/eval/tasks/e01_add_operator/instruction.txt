@@ -1,0 +1,4 @@
+The add function returns wrong results.
+add(2, 3) gives -1 instead of 5.
+add(10, 5) gives 5 instead of 15.
+Fix the add function so it correctly adds two numbers.

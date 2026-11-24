@@ -1,0 +1,77 @@
+[
+  {
+    "name": "e01_add_operator",
+    "difficulty": "easy",
+    "instruction_preview": "The add function returns wrong results.\nadd(2, 3) gives -1 instead of 5.\nadd(10,"
+  },
+  {
+    "name": "e02_double_value",
+    "difficulty": "easy",
+    "instruction_preview": "The double function does not double its input.\ndouble(4) returns 4 instead of 8."
+  },
+  {
+    "name": "e03_grade_boundary",
+    "difficulty": "easy",
+    "instruction_preview": "A student who scores exactly 50 should pass, but the function marks them as fail"
+  },
+  {
+    "name": "e04_celsius_sign",
+    "difficulty": "easy",
+    "instruction_preview": "The temperature conversion function returns values with the wrong sign.\ncelsius_"
+  },
+  {
+    "name": "e05_email_domain",
+    "difficulty": "easy",
+    "instruction_preview": "get_domain(\"user@example.com\") returns \"user\" instead of \"example.com\".\nThe func"
+  },
+  {
+    "name": "h12_discount_pipeline",
+    "difficulty": "hard",
+    "instruction_preview": "checkout_total() charges the full price even when a discount has been set on the"
+  },
+  {
+    "name": "h13_access_control",
+    "difficulty": "hard",
+    "instruction_preview": "The access control system has the permissions completely backwards.\nAdmin users "
+  },
+  {
+    "name": "h14_normalize_bug",
+    "difficulty": "hard",
+    "instruction_preview": "The normalize function should map values to the [0, 1] range, where the minimum\n"
+  },
+  {
+    "name": "h15_event_order",
+    "difficulty": "hard",
+    "instruction_preview": "process_events() produces wrong results when events depend on order.\nAfter creat"
+  },
+  {
+    "name": "m06_range_inclusive",
+    "difficulty": "medium",
+    "instruction_preview": "count_up_to(5) returns [0, 1, 2, 3, 4] but should return [0, 1, 2, 3, 4, 5].\nThe"
+  },
+  {
+    "name": "m07_none_guard",
+    "difficulty": "medium",
+    "instruction_preview": "word_count(None) raises an AttributeError instead of returning 0.\nThe function w"
+  },
+  {
+    "name": "m08_median_index",
+    "difficulty": "medium",
+    "instruction_preview": "get_median([1, 2, 3, 4, 5]) returns 2 instead of 3.\nget_median([10, 20, 30]) ret"
+  },
+  {
+    "name": "m09_empty_average",
+    "difficulty": "medium",
+    "instruction_preview": "safe_average([]) raises a ZeroDivisionError instead of returning 0.0.\nThe functi"
+  },
+  {
+    "name": "m10_remove_first",
+    "difficulty": "medium",
+    "instruction_preview": "remove_first([1, 2, 3]) returns [1, 2, 3] instead of [2, 3].\nThe function should"
+  },
+  {
+    "name": "m11_two_func_logic",
+    "difficulty": "medium",
+    "instruction_preview": "create_profile(\"Alice\", 25) returns None but should return {\"name\": \"Alice\", \"ag"
+  }
+]

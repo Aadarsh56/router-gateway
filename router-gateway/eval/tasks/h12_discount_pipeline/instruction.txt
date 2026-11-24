@@ -1,0 +1,6 @@
+checkout_total() charges the full price even when a discount has been set on the cart.
+A cart with items totalling $100.00 and a 20% discount should cost $80.00,
+but the full $100.00 is always charged regardless of the discount.
+The Cart class has set_discount() and there is a pricing module with apply_discount(),
+but the discount is never being applied at checkout.
+Fix checkout_total() in checkout.py to apply the cart's discount correctly.

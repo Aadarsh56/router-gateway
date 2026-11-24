@@ -1,0 +1,6 @@
+process_events() produces wrong results when events depend on order.
+After creating item "a" and then deleting it, item "a" still appears in the output.
+After creating item "b" with value 10 and then updating it to 20, the value is still 10.
+Events must be processed in the order they arrive — the sequence matters because
+you cannot update an item before it is created, and deleting after updating is different
+from deleting before updating. Fix pipeline.py so events run in their original order.

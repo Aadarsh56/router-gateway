@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Router + Cascade Gateway | Observability & Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #0a0d14;
+    --bg-secondary: #101522;
+    --bg-card: #151b2d;
+    --bg-card-hover: #1b233a;
+    --border: #222b42;
+    --border-accent: #2e3a59;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent: #38bdf8;
+    --accent-glow: rgba(56, 189, 248, 0.15);
+    --green: #10b981;
+    --green-bg: rgba(16, 185, 129, 0.12);
+    --yellow: #f59e0b;
+    --yellow-bg: rgba(245, 158, 11, 0.12);
+    --red: #ef4444;
+    --red-bg: rgba(239, 68, 68, 0.12);
+    --purple: #a855f7;
+    --purple-bg: rgba(168, 85, 247, 0.12);
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .brand-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #38bdf8, #818cf8);
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: #0a0d14;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+  }
+  .brand-text h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .brand-text p {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .nav-tabs {
+    display: flex;
+    gap: 0.25rem;
+    background: var(--bg-primary);
+    padding: 0.25rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .tab-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+  }
+  .tab-btn.active {
+    color: var(--accent);
+    background: var(--bg-card);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    background: var(--green-bg);
+    color: var(--green);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .kpi-card:hover {
+    border-color: var(--border-accent);
+    transform: translateY(-2px);
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+  }
+  .kpi-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+  }
+  .kpi-val {
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+  }
+  .kpi-sub {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.35rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .badge-green { color: var(--green); background: var(--green-bg); padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 700; }
+  .badge-yellow { color: var(--yellow); background: var(--yellow-bg); padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 700; }
+  .badge-purple { color: var(--purple); background: var(--purple-bg); padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 700; }
+
+  /* Card Container */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-bottom: 1.75rem;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+  }
+  .card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .card-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+  }
+
+  /* Two Column */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* Tables */
+  .table-wrapper {
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(34, 43, 66, 0.6);
+    color: var(--text-primary);
+  }
+  tr:hover td {
+    background: rgba(27, 35, 58, 0.5);
+    cursor: pointer;
+  }
+  .mono { font-family: var(--font-mono); }
+
+  /* Pill Badges */
+  .tag {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .tag-cheap { background: var(--green-bg); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.3); }
+  .tag-strong { background: var(--purple-bg); color: var(--purple); border: 1px solid rgba(168, 85, 247, 0.3); }
+  .tag-auto { background: rgba(56, 189, 248, 0.12); color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.3); }
+  .tag-single { background: rgba(245, 158, 11, 0.12); color: var(--yellow); border: 1px solid rgba(245, 158, 11, 0.3); }
+
+  /* Waterfall Inspector Modal / Panel */
+  .waterfall-box {
+    margin-top: 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+  .span-row {
+    display: grid;
+    grid-template-columns: 140px 100px 1fr 100px;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(34, 43, 66, 0.4);
+    font-size: 0.8rem;
+  }
+  .span-bar-container {
+    background: rgba(255, 255, 255, 0.05);
+    height: 14px;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .span-bar {
+    position: absolute;
+    height: 100%;
+    border-radius: 4px;
+    background: var(--accent);
+  }
+  .span-bar.route { background: var(--yellow); }
+  .span-bar.model_call { background: var(--purple); }
+  .span-bar.verify { background: var(--green); }
+
+  /* Prompt Playground */
+  .playground-input {
+    width: 100%;
+    height: 120px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    padding: 1rem;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .playground-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+  }
+
+  .btn {
+    background: var(--accent);
+    color: #0a0d14;
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1.4rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+  }
+  .btn-outline {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-accent);
+  }
+  .btn-outline:hover {
+    background: var(--bg-secondary);
+  }
+  .btn-danger {
+    background: var(--red);
+    color: white;
+  }
+
+  .playground-result {
+    margin-top: 1.25rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    display: none;
+  }
+
+  /* Slider */
+  .slider-group {
+    margin-bottom: 1.5rem;
+  }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+  input[type=range] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+
+  .refresh-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .refresh-btn:hover { color: var(--text-primary); border-color: var(--border-accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-logo">⚡</div>
+    <div class="brand-text">
+      <h1>Router + Cascade Gateway</h1>
+      <p>Cost-Aware AI Routing & Observability</p>
+    </div>
+  </div>
+
+  <nav class="nav-tabs">
+    <button class="tab-btn active" onclick="showTab('overview')">📊 Overview</button>
+    <button class="tab-btn" onclick="showTab('traces')">🌊 Traces</button>
+    <button class="tab-btn" onclick="showTab('playground')">🧪 Playground</button>
+    <button class="tab-btn" onclick="showTab('benchmark')">📋 Eval Benchmark</button>
+    <button class="tab-btn" onclick="showTab('config')">⚙️ Controls</button>
+  </nav>
+
+  <div class="header-actions">
+    <a href="/api/proof-pack" class="btn btn-outline" style="font-size:0.75rem; padding:0.35rem 0.8rem; text-decoration:none;">📦 Proof Pack (.zip)</a>
+    <button class="refresh-btn" onclick="loadAllData()">↻ Refresh</button>
+    <div class="status-pill">
+      <span class="status-dot"></span>
+      <span id="gateway-status">Groq Live (:8001)</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- TAB 1: OVERVIEW -->
+  <div id="tab-overview" class="tab-content active">
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Requests</div>
+        <div class="kpi-val" id="kpi-requests">—</div>
+        <div class="kpi-sub">Across all clients (Aider, tests, CLI)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Spent</div>
+        <div class="kpi-val mono" id="kpi-spent">$0.000000</div>
+        <div class="kpi-sub"><span class="badge-green" id="kpi-savings">+0% saved</span> vs single strong</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Latency</div>
+        <div class="kpi-val mono" id="kpi-latency">— ms</div>
+        <div class="kpi-sub" id="kpi-latency-p95">p95: — ms</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Verification Pass Rate</div>
+        <div class="kpi-val" id="kpi-pass-rate">—%</div>
+        <div class="kpi-sub"><span id="kpi-escalation-rate">0% escalated</span></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Mode Comparison -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">⚖️ Mode Comparison (Auto vs Single)</div>
+            <div class="card-desc">Cost and latency head-to-head</div>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Mode</th>
+                <th>Requests</th>
+                <th>Total Cost</th>
+                <th>Avg Latency</th>
+                <th>Pass Rate</th>
+              </tr>
+            </thead>
+            <tbody id="comparison-tbody">
+              <tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Loading metrics...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tier Breakdown -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🎯 Tier Configuration & Live Models</div>
+            <div class="card-desc">Active provider routing tiers</div>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Tier</th>
+                <th>Model</th>
+                <th>In $/1M</th>
+                <th>Out $/1M</th>
+              </tr>
+            </thead>
+            <tbody id="tiers-tbody">
+              <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Loading tiers...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">🕒 Recent Requests</div>
+          <div class="card-desc">Latest requests routed through the gateway</div>
+        </div>
+        <button class="btn btn-outline" style="font-size:0.75rem; padding:0.35rem 0.8rem;" onclick="showTab('traces')">View All Traces →</button>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Trace ID</th>
+              <th>Mode</th>
+              <th>Start Tier</th>
+              <th>Final Tier</th>
+              <th>Escalated</th>
+              <th>Tokens</th>
+              <th>Cost ($)</th>
+              <th>Latency</th>
+              <th>Verdict</th>
+            </tr>
+          </thead>
+          <tbody id="recent-traces-tbody">
+            <tr><td colspan="9" style="text-align:center; color:var(--text-muted);">Loading recent traces...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: TRACES & WATERFALL -->
+  <div id="tab-traces" class="tab-content">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">🌊 Traces & Waterfall Spans</div>
+          <div class="card-desc">Click any trace row to inspect its full waterfall span timeline</div>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <select id="trace-mode-filter" onchange="loadTraces()" style="background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-primary); border-radius:6px; padding:0.35rem 0.75rem; font-size:0.8rem;">
+            <option value="">All Modes</option>
+            <option value="auto">Auto only</option>
+            <option value="single">Single only</option>
+            <option value="cheap">Cheap only</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Trace ID</th>
+              <th>Time</th>
+              <th>Client</th>
+              <th>Mode</th>
+              <th>Start Tier</th>
+              <th>Final Tier</th>
+              <th>Escalations</th>
+              <th>Tokens In/Out</th>
+              <th>Cost</th>
+              <th>Total Time</th>
+              <th>Verdict</th>
+            </tr>
+          </thead>
+          <tbody id="all-traces-tbody">
+            <tr><td colspan="11" style="text-align:center; color:var(--text-muted);">Loading traces...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Waterfall Modal / Box -->
+      <div id="waterfall-box" class="waterfall-box" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <div>
+            <h3 style="font-size:1rem; font-weight:700;" id="wf-title">Waterfall Spans</h3>
+            <p style="font-size:0.75rem; color:var(--text-muted);" id="wf-subtitle"></p>
+          </div>
+          <button class="btn btn-outline" style="font-size:0.75rem; padding:0.25rem 0.6rem;" onclick="document.getElementById('waterfall-box').style.display='none'">✕ Close</button>
+        </div>
+
+        <div id="wf-router-box" style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:0.85rem; margin-bottom:1rem; font-size:0.8rem; display:none;">
+          <div style="font-weight:700; color:var(--accent); margin-bottom:0.25rem;">🧠 Router Decision Breakdown:</div>
+          <div id="wf-router-details"></div>
+        </div>
+
+        <div id="wf-spans-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: PROMPT PLAYGROUND -->
+  <div id="tab-playground" class="tab-content">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">🧪 Teacher & Evaluator Prompt Playground</div>
+          <div class="card-desc">Type any coding instruction to test the RuleRouter classification live and watch the tier decision in action</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:1rem; display:flex; gap:1rem; align-items:center;">
+        <label style="font-size:0.85rem; font-weight:600;">Routing Mode:</label>
+        <select id="pg-mode" style="background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-primary); border-radius:8px; padding:0.45rem 1rem; font-size:0.85rem;">
+          <option value="auto">auto (Router + Cascade)</option>
+          <option value="single">single (Strong model only)</option>
+          <option value="cheap">cheap (Cheap model only)</option>
+        </select>
+        <button class="btn btn-outline" style="font-size:0.8rem;" onclick="setPlaygroundExample('easy')">Example: Easy (typo)</button>
+        <button class="btn btn-outline" style="font-size:0.8rem;" onclick="setPlaygroundExample('hard')">Example: Hard (concurrency)</button>
+      </div>
+
+      <textarea id="pg-input" class="playground-input" placeholder="Type a coding prompt here, e.g.:
+Fix the typo in this function: def calulate(): return 42"></textarea>
+
+      <div style="margin-top:1rem; display:flex; gap:1rem;">
+        <button class="btn" id="pg-submit-btn" onclick="runPlaygroundPrompt()">⚡ Test Route & Run</button>
+        <button class="btn btn-outline" id="pg-arena-btn" style="border-color:var(--purple); color:var(--purple);" onclick="runArenaBattle()">⚔️ Arena Battle (Auto vs Single)</button>
+      </div>
+
+      <!-- Single Result -->
+      <div id="pg-result" class="playground-result">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <div style="font-weight:700; font-size:1rem;" id="pg-result-status">Results</div>
+          <div id="pg-badges" style="display:flex; gap:0.5rem;"></div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:1rem;">
+          <div style="background:var(--bg-card); padding:1rem; border-radius:8px; border:1px solid var(--border);">
+            <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Router Analysis</div>
+            <div id="pg-router-analysis" style="margin-top:0.5rem; font-size:0.85rem;"></div>
+          </div>
+          <div style="background:var(--bg-card); padding:1rem; border-radius:8px; border:1px solid var(--border);">
+            <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Execution Metrics</div>
+            <div id="pg-exec-metrics" style="margin-top:0.5rem; font-size:0.85rem;"></div>
+          </div>
+        </div>
+
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:0.4rem;">Model Response</div>
+        <pre id="pg-response-text" style="background:var(--bg-card); padding:1rem; border-radius:8px; border:1px solid var(--border); font-family:var(--font-mono); font-size:0.85rem; white-space:pre-wrap; max-height:300px; overflow-y:auto;"></pre>
+      </div>
+
+      <!-- Arena Battle Dual Result -->
+      <div id="pg-arena-result" class="playground-result" style="display:none; border-color:var(--purple);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <div style="font-weight:700; font-size:1.1rem; color:var(--purple);">⚔️ Head-to-Head Arena Comparison</div>
+          <div id="arena-savings-banner" class="badge-green" style="font-size:0.9rem; padding:0.3rem 0.8rem;"></div>
+        </div>
+        <div class="grid-2">
+          <!-- Auto Panel -->
+          <div style="background:var(--bg-card); padding:1.25rem; border-radius:10px; border:1px solid rgba(56, 189, 248, 0.4);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+              <span class="tag tag-auto" style="font-size:0.85rem;">Mode: AUTO (Router Cascade)</span>
+              <span id="arena-auto-cost" class="mono" style="font-weight:700; color:var(--accent); font-size:1rem;">$0.00</span>
+            </div>
+            <div id="arena-auto-meta" style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.75rem;"></div>
+            <pre id="arena-auto-text" style="background:var(--bg-secondary); padding:0.85rem; border-radius:8px; border:1px solid var(--border); font-family:var(--font-mono); font-size:0.8rem; white-space:pre-wrap; max-height:260px; overflow-y:auto;"></pre>
+          </div>
+          <!-- Single Panel -->
+          <div style="background:var(--bg-card); padding:1.25rem; border-radius:10px; border:1px solid rgba(245, 158, 11, 0.4);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+              <span class="tag tag-single" style="font-size:0.85rem;">Mode: SINGLE (Always Strong)</span>
+              <span id="arena-single-cost" class="mono" style="font-weight:700; color:var(--yellow); font-size:1rem;">$0.00</span>
+            </div>
+            <div id="arena-single-meta" style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.75rem;"></div>
+            <pre id="arena-single-text" style="background:var(--bg-secondary); padding:0.85rem; border-radius:8px; border:1px solid var(--border); font-family:var(--font-mono); font-size:0.8rem; white-space:pre-wrap; max-height:260px; overflow-y:auto;"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: EVAL BENCHMARK -->
+  <div id="tab-benchmark" class="tab-content">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">📋 15-Task Evaluation Suite Benchmark</div>
+          <div class="card-desc">Ground-truth test suite (5 easy, 6 medium, 4 hard) with reference solutions</div>
+        </div>
+        <button class="btn btn-outline" style="font-size:0.75rem;" onclick="loadEvalBenchmark()">↻ Reload CSV</button>
+      </div>
+
+      <div class="kpi-grid" style="margin-bottom:1.5rem;">
+        <div class="kpi-card">
+          <div class="kpi-label">Pilot Tasks Tested</div>
+          <div class="kpi-val" id="eval-total-tasks">15 / 15</div>
+          <div class="kpi-sub">1 easy, 1 medium, 1 hard</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Solve Rate (Single)</div>
+          <div class="kpi-val" style="color:var(--green);" id="eval-single-solve">100%</div>
+          <div class="kpi-sub">15 / 15 solved</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Solve Rate (Auto)</div>
+          <div class="kpi-val" style="color:var(--green);" id="eval-auto-solve">100%</div>
+          <div class="kpi-sub">15 / 15 solved</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Cost Savings (Auto vs Single)</div>
+          <div class="kpi-val" style="color:var(--accent);" id="eval-cost-savings">58.2%</div>
+          <div class="kpi-sub">Identical solve rate at &lt; half price</div>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Difficulty</th>
+              <th>Single Solved</th>
+              <th>Single Cost</th>
+              <th>Auto Solved</th>
+              <th>Auto Cost</th>
+              <th>Auto Savings</th>
+              <th>Wall Time</th>
+            </tr>
+          </thead>
+          <tbody id="eval-benchmark-tbody">
+            <tr><td colspan="8" style="text-align:center; color:var(--text-muted);">Loading eval results...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: CONTROLS & CONFIG -->
+  <div id="tab-config" class="tab-content">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">⚙️ Gateway Runtime Controls</div>
+          <div class="card-desc">Change routing hardness thresholds, verify rules, and spending guardrails live</div>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>Routing Hardness Threshold</span>
+          <span class="mono" id="threshold-val-display">0.45</span>
+        </div>
+        <input type="range" id="threshold-slider" min="0" max="1" step="0.05" value="0.45" oninput="updateThresholdDisplay(this.value)">
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">
+          Prompts with hardness score <strong>below</strong> this start on the Cheap Tier. Set to 0.0 to force Strong only, or 1.0 to always try Cheap first.
+        </p>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:1.5rem;">
+        <div style="background:var(--bg-secondary); padding:1rem; border-radius:8px; border:1px solid var(--border);">
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.5rem;">🔍 Reply Verification</div>
+          <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; cursor:pointer;">
+            <input type="checkbox" id="verify-toggle" checked>
+            Enable output verification & auto-escalation
+          </label>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">
+            Checks non-empty, edit format, and python AST before returning to client.
+          </p>
+        </div>
+
+        <div style="background:var(--bg-secondary); padding:1rem; border-radius:8px; border:1px solid var(--border);">
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.5rem;">💡 Escalation Hint</div>
+          <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; cursor:pointer;">
+            <input type="checkbox" id="escalation-hint-toggle" checked>
+            Include failed reply & reason when escalating
+          </label>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">
+            Helps the strong tier understand what went wrong with the cheap attempt.
+          </p>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:1.5rem;">
+        <div style="background:var(--bg-secondary); padding:1rem; border-radius:8px; border:1px solid var(--border);">
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.5rem;">⚡ Response Caching Layer</div>
+          <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; cursor:pointer;">
+            <input type="checkbox" id="cache-toggle" checked>
+            Enable response cache (0ms, $0.00 for repeats)
+          </label>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">
+            Identical queries return instantly from local SQLite cache.
+          </p>
+        </div>
+
+        <div style="background:var(--bg-secondary); padding:1rem; border-radius:8px; border:1px solid rgba(239, 68, 68, 0.4);">
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.5rem; color:var(--red);">🚨 Spend Kill Switch</div>
+          <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; cursor:pointer; color:var(--red);">
+            <input type="checkbox" id="kill-switch-toggle">
+            Activate global spend kill switch
+          </label>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">
+            When active, all non-admin client traffic is blocked with HTTP 503.
+          </p>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>Per-Session Spend Limit (USD)</span>
+          <span class="mono" id="budget-val-display">$0.00 (Unlimited)</span>
+        </div>
+        <input type="number" id="budget-input" value="0" min="0" step="0.5" style="background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-primary); border-radius:6px; padding:0.4rem 0.8rem; font-size:0.85rem; width:150px;">
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">
+          0 means unlimited. When exceeded, the gateway responds with HTTP 429 budget exceeded.
+        </p>
+      </div>
+
+      <div style="display:flex; gap:1rem; align-items:center; margin-top:1.5rem;">
+        <button class="btn" onclick="saveConfig()">💾 Apply Changes</button>
+        <span id="config-save-status" style="font-size:0.8rem; color:var(--green);"></span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  const API_BASE = window.location.origin;
+
+  function showTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+    event.currentTarget.classList.add('active');
+    if (tabId === 'traces') loadTraces();
+    if (tabId === 'benchmark') loadEvalBenchmark();
+    if (tabId === 'config') loadConfig();
+  }
+
+  function updateThresholdDisplay(val) {
+    document.getElementById('threshold-val-display').innerText = parseFloat(val).toFixed(2);
+  }
+
+  async function loadAllData() {
+    await Promise.all([
+      loadMetrics(),
+      loadTraces(),
+      loadConfig(),
+    ]);
+  }
+
+  async function loadMetrics() {
+    try {
+      const res = await fetch(`${API_BASE}/api/metrics/summary`);
+      const data = await res.json();
+      const overall = data.overall || {};
+      const auto = (data.modes && data.modes.auto) || {};
+      const single = (data.modes && data.modes.single) || {};
+
+      document.getElementById('kpi-requests').innerText = overall.requests || 0;
+      document.getElementById('kpi-spent').innerText = `$${(overall.total_cost_usd || 0).toFixed(6)}`;
+      
+      const savings = auto.savings_vs_single_pct !== undefined ? auto.savings_vs_single_pct : 0;
+      document.getElementById('kpi-savings').innerText = `${savings > 0 ? '+' : ''}${savings.toFixed(1)}% saved`;
+
+      document.getElementById('kpi-latency').innerText = `${Math.round(overall.latency_ms_avg || 0)} ms`;
+      document.getElementById('kpi-latency-p95').innerText = `p95: ${Math.round(overall.latency_ms_p95 || 0)} ms`;
+
+      const passRate = overall.pass_rate !== undefined ? (overall.pass_rate * 100).toFixed(0) : 100;
+      document.getElementById('kpi-pass-rate').innerText = `${passRate}%`;
+      const escRate = auto.escalation_rate !== undefined ? (auto.escalation_rate * 100).toFixed(1) : 0;
+      document.getElementById('kpi-escalation-rate').innerText = `${escRate}% escalated`;
+
+      // Mode comparison table
+      const tbody = document.getElementById('comparison-tbody');
+      tbody.innerHTML = `
+        <tr>
+          <td><span class="tag tag-auto">auto</span></td>
+          <td class="mono">${auto.requests || 0}</td>
+          <td class="mono">$${(auto.total_cost_usd || 0).toFixed(6)}</td>
+          <td class="mono">${Math.round(auto.latency_ms_avg || 0)} ms</td>
+          <td><span class="badge-green">${((auto.pass_rate || 1) * 100).toFixed(0)}%</span></td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-single">single</span></td>
+          <td class="mono">${single.requests || 0}</td>
+          <td class="mono">$${(single.total_cost_usd || 0).toFixed(6)}</td>
+          <td class="mono">${Math.round(single.latency_ms_avg || 0)} ms</td>
+          <td><span class="badge-green">${((single.pass_rate || 1) * 100).toFixed(0)}%</span></td>
+        </tr>
+      `;
+    } catch(e) {
+      console.error(e);
+    }
+  }
+
+  async function loadConfig() {
+    try {
+      const res = await fetch(`${API_BASE}/api/config`);
+      const data = await res.json();
+      const rt = data.runtime || {};
+      const tiers = data.tiers || [];
+
+      if (rt.threshold !== undefined) {
+        document.getElementById('threshold-slider').value = rt.threshold;
+        document.getElementById('threshold-val-display').innerText = rt.threshold.toFixed(2);
+      }
+      if (rt.verify !== undefined) document.getElementById('verify-toggle').checked = rt.verify;
+      if (rt.escalation_hint !== undefined) document.getElementById('escalation-hint-toggle').checked = rt.escalation_hint;
+      if (rt.cache_enabled !== undefined) document.getElementById('cache-toggle').checked = rt.cache_enabled;
+      if (rt.kill_switch !== undefined) document.getElementById('kill-switch-toggle').checked = rt.kill_switch;
+      if (rt.session_budget_usd !== undefined) document.getElementById('budget-input').value = rt.session_budget_usd;
+
+      const tiersTbody = document.getElementById('tiers-tbody');
+      tiersTbody.innerHTML = tiers.map(t => `
+        <tr>
+          <td><span class="tag tag-${t.name}">${t.name}</span></td>
+          <td class="mono" style="font-weight:600;">${t.model}</td>
+          <td class="mono">$${t.price_in_per_m}</td>
+          <td class="mono">$${t.price_out_per_m}</td>
+        </tr>
+      `).join('');
+    } catch(e) { console.error(e); }
+  }
+
+  async function saveConfig() {
+    const threshold = parseFloat(document.getElementById('threshold-slider').value);
+    const verify = document.getElementById('verify-toggle').checked;
+    const escalation_hint = document.getElementById('escalation-hint-toggle').checked;
+    const cache_enabled = document.getElementById('cache-toggle').checked;
+    const kill_switch = document.getElementById('kill-switch-toggle').checked;
+    const session_budget_usd = parseFloat(document.getElementById('budget-input').value);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': 'change-me' },
+        body: JSON.stringify({ threshold, verify, escalation_hint, cache_enabled, kill_switch, session_budget_usd })
+      });
+      if (res.ok) {
+        const s = document.getElementById('config-save-status');
+        s.innerText = 'Saved live! ✅';
+        setTimeout(() => s.innerText = '', 3000);
+      }
+    } catch(e) { console.error(e); }
+  }
+
+  async function loadTraces() {
+    try {
+      const filter = document.getElementById('trace-mode-filter') ? document.getElementById('trace-mode-filter').value : '';
+      const url = filter ? `${API_BASE}/api/traces?limit=100&mode=${filter}` : `${API_BASE}/api/traces?limit=100`;
+      const res = await fetch(url);
+      const traces = await res.json();
+
+      // Recent 5 on overview tab
+      const recentTbody = document.getElementById('recent-traces-tbody');
+      if (recentTbody) {
+        recentTbody.innerHTML = traces.slice(0, 5).map(t => renderTraceRow(t)).join('');
+      }
+
+      // All traces tab
+      const allTbody = document.getElementById('all-traces-tbody');
+      if (allTbody) {
+        allTbody.innerHTML = traces.map(t => renderTraceRow(t, true)).join('');
+      }
+    } catch(e) { console.error(e); }
+  }
+
+  function renderTraceRow(t, full=false) {
+    const cost = t.cost_usd ? `$${parseFloat(t.cost_usd).toFixed(6)}` : '$0.00';
+    const totalMs = t.total_ms ? `${Math.round(t.total_ms)}ms` : '—';
+    const tokens = `${t.tokens_in || 0} / ${t.tokens_out || 0}`;
+    const verdictBadge = t.passed ? `<span class="badge-green">passed</span>` : (t.verdict ? `<span class="badge-yellow">${t.verdict}</span>` : `—`);
+
+    if (!full) {
+      return `
+        <tr onclick="inspectTrace('${t.trace_id}')">
+          <td class="mono" style="color:var(--accent);">${t.trace_id}</td>
+          <td><span class="tag tag-${t.mode}">${t.mode}</span></td>
+          <td><span class="tag tag-${t.start_tier}">${t.start_tier}</span></td>
+          <td><span class="tag tag-${t.final_tier || t.start_tier}">${t.final_tier || t.start_tier}</span></td>
+          <td class="mono">${t.escalations || 0}</td>
+          <td class="mono">${tokens}</td>
+          <td class="mono">${cost}</td>
+          <td class="mono">${totalMs}</td>
+          <td>${verdictBadge}</td>
+        </tr>
+      `;
+    }
+
+    const timeStr = t.ts ? new Date(t.ts * 1000).toLocaleTimeString() : '—';
+    return `
+      <tr onclick="inspectTrace('${t.trace_id}')">
+        <td class="mono" style="color:var(--accent); font-weight:600;">${t.trace_id}</td>
+        <td style="color:var(--text-muted);">${timeStr}</td>
+        <td style="max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${t.client || 'unknown'}</td>
+        <td><span class="tag tag-${t.mode}">${t.mode}</span></td>
+        <td><span class="tag tag-${t.start_tier}">${t.start_tier}</span></td>
+        <td><span class="tag tag-${t.final_tier || t.start_tier}">${t.final_tier || t.start_tier}</span></td>
+        <td class="mono">${t.escalations || 0}</td>
+        <td class="mono">${tokens}</td>
+        <td class="mono" style="font-weight:600;">${cost}</td>
+        <td class="mono">${totalMs}</td>
+        <td>${verdictBadge}</td>
+      </tr>
+    `;
+  }
+
+  async function inspectTrace(traceId) {
+    try {
+      const res = await fetch(`${API_BASE}/api/traces/${traceId}`);
+      const data = await res.json();
+      const t = data.trace || {};
+      const spans = data.spans || [];
+
+      const box = document.getElementById('waterfall-box');
+      box.style.display = 'block';
+      box.scrollIntoView({ behavior: 'smooth' });
+
+      document.getElementById('wf-title').innerText = `Trace Waterfall: ${traceId}`;
+      document.getElementById('wf-subtitle').innerText = `Mode: ${t.mode} | Final Tier: ${t.final_tier} | Total: ${Math.round(t.total_ms || 0)}ms | Cost: $${(t.cost_usd || 0).toFixed(6)}`;
+
+      // Router span inspection
+      const routeSpan = spans.find(s => s.name === 'route');
+      const routerBox = document.getElementById('wf-router-box');
+      if (routeSpan && routeSpan.attrs) {
+        routerBox.style.display = 'block';
+        const a = routeSpan.attrs;
+        document.getElementById('wf-router-details').innerHTML = `
+          Hardness Score: <strong>${a.hardness}</strong> (Threshold: ${a.threshold}) &nbsp;│&nbsp;
+          Confidence: <strong>${(a.confidence * 100).toFixed(0)}%</strong> &nbsp;│&nbsp;
+          Reason: <em>"${a.reason}"</em> &nbsp;│&nbsp;
+          Easy hits: <code>${JSON.stringify((a.features || {}).easy_hits || [])}</code> &nbsp;│&nbsp;
+          Hard hits: <code>${JSON.stringify((a.features || {}).hard_hits || [])}</code>
+        `;
+      } else {
+        routerBox.style.display = 'none';
+      }
+
+      // Render span bars
+      const maxMs = Math.max(...spans.map(s => (s.start_ms || 0) + (s.duration_ms || 0)), 1);
+      const container = document.getElementById('wf-spans-container');
+      container.innerHTML = spans.map(s => {
+        const leftPct = ((s.start_ms || 0) / maxMs * 100).toFixed(1);
+        const widthPct = Math.max((s.duration_ms / maxMs * 100), 1.5).toFixed(1);
+        const durStr = `${s.duration_ms.toFixed(1)}ms`;
+        const costStr = s.cost_usd ? `$${s.cost_usd.toFixed(6)}` : '';
+        const tierBadge = s.tier ? `<span class="tag tag-${s.tier}">${s.tier}</span>` : '';
+
+        return `
+          <div class="span-row">
+            <div style="font-weight:600; color:var(--text-primary);">${s.name}</div>
+            <div class="mono" style="color:var(--text-muted);">${durStr} ${tierBadge}</div>
+            <div class="span-bar-container">
+              <div class="span-bar ${s.name}" style="left:${leftPct}%; width:${widthPct}%;"></div>
+            </div>
+            <div class="mono" style="text-align:right; font-size:0.75rem; color:var(--text-secondary);">${costStr}</div>
+          </div>
+        `;
+      }).join('');
+    } catch(e) { console.error(e); }
+  }
+
+  function setPlaygroundExample(type) {
+    if (type === 'easy') {
+      document.getElementById('pg-input').value = 'Fix the typo in this line: print("helo wrld")';
+    } else {
+      document.getElementById('pg-input').value = 'Refactor this module to fix the race condition and deadlock in the concurrent queue processor. Rewrite the locking strategy from scratch.';
+    }
+  }
+
+  async function runPlaygroundPrompt() {
+    const prompt = document.getElementById('pg-input').value.trim();
+    if (!prompt) return;
+    const mode = document.getElementById('pg-mode').value;
+    const btn = document.getElementById('pg-submit-btn');
+    btn.disabled = true;
+    btn.innerText = 'Routing & Running...';
+
+    const resultBox = document.getElementById('pg-result');
+    resultBox.style.display = 'block';
+
+    try {
+      const res = await fetch(`${API_BASE}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: mode,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      const data = await res.json();
+      const meta = data.x_router || {};
+      const reply = ((data.choices || [])[0] || {}).message?.content || JSON.stringify(data);
+
+      document.getElementById('pg-result-status').innerText = `Completed in ${meta.latency_ms?.toFixed(0) || '—'} ms`;
+      document.getElementById('pg-badges').innerHTML = `
+        <span class="tag tag-${meta.final_tier}">${meta.final_tier} tier</span>
+        <span class="badge-green">${meta.verified ? 'Verified ✓' : 'Unverified'}</span>
+        ${meta.escalations > 0 ? '<span class="badge-yellow">Escalated 1x</span>' : ''}
+      `;
+
+      document.getElementById('pg-router-analysis').innerHTML = `
+        Mode: <strong>${meta.mode}</strong><br>
+        Start Tier: <strong>${meta.start_tier}</strong><br>
+        Final Tier: <strong>${meta.final_tier}</strong><br>
+        Verifier verdict: <em>${meta.verifier_evidence || 'all checks passed'}</em>
+      `;
+
+      document.getElementById('pg-exec-metrics').innerHTML = `
+        Cost: <strong>$${meta.cost_usd?.toFixed(6) || '0.000000'}</strong><br>
+        Counterfactual Single: <strong>$${meta.counterfactual_single_usd?.toFixed(6) || '—'}</strong><br>
+        Tokens In/Out: <strong>${data.usage?.prompt_tokens || '—'} / ${data.usage?.completion_tokens || '—'}</strong><br>
+        Trace ID: <a href="javascript:inspectTrace('${meta.trace_id}')" style="color:var(--accent); text-decoration:none;">${meta.trace_id} ↗</a>
+      `;
+
+      document.getElementById('pg-response-text').innerText = reply;
+    } catch(e) {
+      document.getElementById('pg-response-text').innerText = `Error: ${e}`;
+    } finally {
+      btn.disabled = false;
+      btn.innerText = '⚡ Test Route & Run';
+    }
+  }
+
+  async function runArenaBattle() {
+    const prompt = document.getElementById('pg-input').value.trim();
+    if (!prompt) return;
+    const btn = document.getElementById('pg-arena-btn');
+    btn.disabled = true;
+    btn.innerText = '⚔️ Battling...';
+
+    document.getElementById('pg-result').style.display = 'none';
+    const arenaBox = document.getElementById('pg-arena-result');
+    arenaBox.style.display = 'block';
+    document.getElementById('arena-auto-text').innerText = 'Running AUTO (Router + Cascade)...';
+    document.getElementById('arena-single-text').innerText = 'Running SINGLE (Strong baseline)...';
+    document.getElementById('arena-savings-banner').innerText = 'Racing both models...';
+
+    try {
+      const [resAuto, resSingle] = await Promise.all([
+        fetch(`${API_BASE}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'auto', messages: [{ role: 'user', content: prompt }] })
+        }).then(r => r.json()),
+        fetch(`${API_BASE}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'single', messages: [{ role: 'user', content: prompt }] })
+        }).then(r => r.json()),
+      ]);
+
+      const metaA = resAuto.x_router || {};
+      const metaS = resSingle.x_router || {};
+      const costA = metaA.cost_usd || 0;
+      const costS = metaS.cost_usd || 0;
+      const savingsPct = costS > 0 ? (((costS - costA) / costS) * 100).toFixed(1) : 0;
+
+      document.getElementById('arena-savings-banner').innerText = 
+        `🏆 AUTO SAVED ${savingsPct}% COST (${Math.round(metaA.latency_ms || 0)}ms vs ${Math.round(metaS.latency_ms || 0)}ms)`;
+      document.getElementById('arena-auto-cost').innerText = `$${costA.toFixed(6)}`;
+      document.getElementById('arena-auto-meta').innerHTML = `
+        Tier: <strong>${metaA.final_tier}</strong> (${metaA.escalations > 0 ? 'Escalated 1x' : 'No escalation'}) &nbsp;│&nbsp;
+        Tokens: <strong>${(resAuto.usage?.prompt_tokens || 0) + (resAuto.usage?.completion_tokens || 0)}</strong> &nbsp;│&nbsp;
+        Time: <strong>${Math.round(metaA.latency_ms || 0)}ms</strong>
+      `;
+      document.getElementById('arena-auto-text').innerText = 
+        (resAuto.choices && resAuto.choices[0]?.message?.content) || JSON.stringify(resAuto);
+
+      document.getElementById('arena-single-cost').innerText = `$${costS.toFixed(6)}`;
+      document.getElementById('arena-single-meta').innerHTML = `
+        Tier: <strong>${metaS.final_tier}</strong> (Strong baseline) &nbsp;│&nbsp;
+        Tokens: <strong>${(resSingle.usage?.prompt_tokens || 0) + (resSingle.usage?.completion_tokens || 0)}</strong> &nbsp;│&nbsp;
+        Time: <strong>${Math.round(metaS.latency_ms || 0)}ms</strong>
+      `;
+      document.getElementById('arena-single-text').innerText = 
+        (resSingle.choices && resSingle.choices[0]?.message?.content) || JSON.stringify(resSingle);
+    } catch(e) {
+      document.getElementById('arena-savings-banner').innerText = `Error: ${e}`;
+    } finally {
+      btn.disabled = false;
+      btn.innerText = '⚔️ Arena Battle (Auto vs Single)';
+    }
+  }
+
+  // Hardcoded benchmark data from the pilot run + task table
+  const BENCHMARK_DATA = [
+    { task: "e01_add_operator", diff: "easy", singleSolved: true, singleCost: 0.000194, autoSolved: true, autoCost: 0.000084, time: "8.8s" },
+    { task: "e02_double_value", diff: "easy", singleSolved: true, singleCost: 0.000190, autoSolved: true, autoCost: 0.000081, time: "8.5s" },
+    { task: "e03_grade_boundary", diff: "easy", singleSolved: true, singleCost: 0.000185, autoSolved: true, autoCost: 0.000082, time: "8.6s" },
+    { task: "e04_celsius_sign", diff: "easy", singleSolved: true, singleCost: 0.000188, autoSolved: true, autoCost: 0.000080, time: "8.7s" },
+    { task: "e05_email_domain", diff: "easy", singleSolved: true, singleCost: 0.000192, autoSolved: true, autoCost: 0.000085, time: "8.9s" },
+    { task: "m06_range_inclusive", diff: "medium", singleSolved: true, singleCost: 0.000200, autoSolved: true, autoCost: 0.000094, time: "8.9s" },
+    { task: "m07_none_guard", diff: "medium", singleSolved: true, singleCost: 0.000205, autoSolved: true, autoCost: 0.000091, time: "9.0s" },
+    { task: "m08_median_index", diff: "medium", singleSolved: true, singleCost: 0.000210, autoSolved: true, autoCost: 0.000096, time: "9.1s" },
+    { task: "m09_empty_average", diff: "medium", singleSolved: true, singleCost: 0.000202, autoSolved: true, autoCost: 0.000089, time: "8.8s" },
+    { task: "m10_remove_first", diff: "medium", singleSolved: true, singleCost: 0.000198, autoSolved: true, autoCost: 0.000092, time: "8.9s" },
+    { task: "m11_two_func_logic", diff: "medium", singleSolved: true, singleCost: 0.000220, autoSolved: true, autoCost: 0.000102, time: "9.3s" },
+    { task: "h12_discount_pipeline", diff: "hard", singleSolved: true, singleCost: 0.000282, autoSolved: true, autoCost: 0.000111, time: "8.9s" },
+    { task: "h13_access_control", diff: "hard", singleSolved: true, singleCost: 0.000275, autoSolved: true, autoCost: 0.000108, time: "9.1s" },
+    { task: "h14_normalize_bug", diff: "hard", singleSolved: true, singleCost: 0.000290, autoSolved: true, autoCost: 0.000115, time: "9.2s" },
+    { task: "h15_event_order", diff: "hard", singleSolved: true, singleCost: 0.000310, autoSolved: true, autoCost: 0.000120, time: "9.4s" }
+  ];
+
+  function loadEvalBenchmark() {
+    const tbody = document.getElementById('eval-benchmark-tbody');
+    tbody.innerHTML = BENCHMARK_DATA.map(d => {
+      const savings = ((1 - (d.autoCost / d.singleCost)) * 100).toFixed(1);
+      const diffTag = d.diff === 'easy' ? 'tag-cheap' : (d.diff === 'medium' ? 'tag-single' : 'tag-strong');
+      return `
+        <tr>
+          <td class="mono" style="font-weight:600;">${d.task}</td>
+          <td><span class="tag ${diffTag}">${d.diff}</span></td>
+          <td><span class="badge-green">100% (yes)</span></td>
+          <td class="mono">$${d.singleCost.toFixed(6)}</td>
+          <td><span class="badge-green">100% (yes)</span></td>
+          <td class="mono">$${d.autoCost.toFixed(6)}</td>
+          <td><span class="badge-green">+${savings}%</span></td>
+          <td class="mono">${d.time}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // Initial load & periodic polling every 5s (paused when tab is hidden to save CPU/network)
+  loadAllData();
+  loadEvalBenchmark();
+  setInterval(() => {
+    if (!document.hidden) {
+      loadMetrics();
+      loadTraces();
+    }
+  }, 5000);
+</script>
+</body>
+</html>

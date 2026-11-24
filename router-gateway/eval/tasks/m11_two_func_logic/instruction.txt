@@ -1,0 +1,4 @@
+create_profile("Alice", 25) returns None but should return {"name": "Alice", "age": 25}.
+create_profile("Bad", -1) returns a profile dict but should return None.
+Valid ages (0-120) are rejected and invalid ages are accepted.
+The validator.py file is correct. The bug is in how register.py uses the validation result.

@@ -1,0 +1,3 @@
+safe_average([]) raises a ZeroDivisionError instead of returning 0.0.
+The function works correctly for non-empty lists.
+It should return 0.0 when given an empty list instead of crashing.

@@ -46,8 +46,21 @@ CREATE TABLE IF NOT EXISTS spans (
     status TEXT,
     attrs TEXT
 );
+CREATE TABLE IF NOT EXISTS cache (
+    cache_key TEXT PRIMARY KEY,
+    model TEXT NOT NULL,
+    completion_text TEXT NOT NULL,
+    finish_reason TEXT NOT NULL,
+    tokens_in INTEGER,
+    tokens_out INTEGER,
+    created_at REAL NOT NULL,
+    hit_count INTEGER DEFAULT 1
+);
 CREATE INDEX IF NOT EXISTS idx_traces_ts ON traces(ts);
+CREATE INDEX IF NOT EXISTS idx_traces_session ON traces(session_id);
+CREATE INDEX IF NOT EXISTS idx_traces_mode ON traces(mode);
 CREATE INDEX IF NOT EXISTS idx_spans_trace ON spans(trace_id);
+CREATE INDEX IF NOT EXISTS idx_cache_key ON cache(cache_key);
 """
 
 SPAN_COLUMNS = {"tier", "tokens_in", "tokens_out", "cost_usd", "status"}
@@ -152,43 +165,83 @@ class TraceStore:
 
     def __init__(self, path: str):
         self.path = path
+        self._closed = False
         self._q: queue.Queue = queue.Queue()
         with self._conn() as c:
-            c.execute("PRAGMA journal_mode=WAL")
             c.executescript(SCHEMA)
         self._thread = threading.Thread(target=self._worker, daemon=True)
         self._thread.start()
 
     def _conn(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path, timeout=10)
+        conn = sqlite3.connect(self.path, timeout=15)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA cache_size=-64000")
+        conn.execute("PRAGMA temp_store=MEMORY")
+        conn.execute("PRAGMA busy_timeout=5000")
         return conn
 
     def emit(self, trace_row: dict[str, Any], spans: list[dict[str, Any]]) -> None:
-        self._q.put((trace_row, spans))
+        if not self._closed:
+            self._q.put((trace_row, spans))
 
     def flush(self) -> None:
         self._q.join()
 
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self.flush()
+        self._q.put(None)
+        if self._thread.is_alive():
+            self._thread.join(timeout=3.0)
+        try:
+            with self._conn() as c:
+                c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception:
+            pass
+
     def _worker(self) -> None:
         conn = self._conn()
         while True:
-            trace_row, spans = self._q.get()
+            item = self._q.get()
+            if item is None:
+                self._q.task_done()
+                break
+            batch = [item]
+            while not self._q.empty() and len(batch) < 100:
+                try:
+                    nxt = self._q.get_nowait()
+                    if nxt is None:
+                        self._q.task_done()
+                        break
+                    batch.append(nxt)
+                except queue.Empty:
+                    break
+
             try:
-                cols = ",".join(trace_row)
-                marks = ",".join("?" for _ in trace_row)
-                conn.execute(f"INSERT OR REPLACE INTO traces ({cols}) VALUES ({marks})", list(trace_row.values()))
-                for s in spans:
-                    row = dict(s)
-                    row["attrs"] = json.dumps(row["attrs"])
-                    cols = ",".join(row)
-                    marks = ",".join("?" for _ in row)
-                    conn.execute(f"INSERT OR REPLACE INTO spans ({cols}) VALUES ({marks})", list(row.values()))
-                conn.commit()
+                with conn:
+                    for trace_row, spans in batch:
+                        cols = ",".join(trace_row)
+                        marks = ",".join("?" for _ in trace_row)
+                        conn.execute(f"INSERT OR REPLACE INTO traces ({cols}) VALUES ({marks})", list(trace_row.values()))
+                        for s in spans:
+                            row = dict(s)
+                            row["attrs"] = json.dumps(row["attrs"])
+                            cols = ",".join(row)
+                            marks = ",".join("?" for _ in row)
+                            conn.execute(f"INSERT OR REPLACE INTO spans ({cols}) VALUES ({marks})", list(row.values()))
             except Exception as exc:  # never let a logging failure kill the worker
                 print(f"[trace-store] write failed: {exc}")
             finally:
-                self._q.task_done()
+                for _ in batch:
+                    self._q.task_done()
+        try:
+            conn.close()
+        except Exception:
+            pass
 
     def list_traces(self, limit: int = 50, mode: str | None = None, session_id: str | None = None) -> list[dict]:
         q = "SELECT * FROM traces WHERE 1=1"
@@ -215,6 +268,48 @@ class TraceStore:
                 d["attrs"] = json.loads(d["attrs"] or "{}")
                 spans.append(d)
         return {"trace": dict(row), "spans": spans}
+
+    def get_cache(self, key: str) -> dict[str, Any] | None:
+        with self._conn() as c:
+            row = c.execute(
+                "SELECT model, completion_text, finish_reason, tokens_in, tokens_out, hit_count FROM cache WHERE cache_key = ?",
+                (key,),
+            ).fetchone()
+            if row:
+                try:
+                    c.execute("UPDATE cache SET hit_count = hit_count + 1 WHERE cache_key = ?", (key,))
+                    c.commit()
+                except Exception:
+                    pass
+                return {
+                    "model": row["model"],
+                    "text": row["completion_text"],
+                    "finish_reason": row["finish_reason"],
+                    "tokens_in": row["tokens_in"],
+                    "tokens_out": row["tokens_out"],
+                    "hit_count": row["hit_count"] + 1,
+                }
+            return None
+
+    def set_cache(self, key: str, model: str, text: str, finish_reason: str, tokens_in: int, tokens_out: int) -> None:
+        with self._conn() as c:
+            try:
+                c.execute(
+                    """INSERT OR REPLACE INTO cache(cache_key, model, completion_text, finish_reason, tokens_in, tokens_out, created_at, hit_count)
+                       VALUES(?, ?, ?, ?, ?, ?, ?, 1)""",
+                    (key, model, text, finish_reason, tokens_in, tokens_out, time.time()),
+                )
+                c.commit()
+            except Exception:
+                pass
+
+    def clear_cache(self) -> None:
+        with self._conn() as c:
+            try:
+                c.execute("DELETE FROM cache")
+                c.commit()
+            except Exception:
+                pass
 
     def summary(self, window_s: float | None = None, session_id: str | None = None) -> dict[str, Any]:
         q = "SELECT * FROM traces WHERE error IS NULL"
